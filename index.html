@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Force Layout Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #e0f7fa, #b2ebf2); /* Subtle gradient background */
+        }
+    
+        #container {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            width: 95%;
+            max-width: 1500px;
+            margin: 20px auto;
+            flex-wrap: wrap; /* Allows elements to wrap on smaller screens */
+        }
+    
+        #visualization {
+            flex-grow: 2;
+            flex-basis: 70%;
+            margin-right: 20px;
+        }
+    
+        #sideContainer {
+            flex-grow: 1;
+            flex-basis: 25%;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    
+        #topContainer,
+        #bottomContainer {
+            background-color: #fff;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            width: 100%;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); /* Stronger shadow for a floating effect */
+        }
+    
+        #topContainer h3,
+        #bottomContainer h3 {
+            color: #00796b;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            text-align: center; /* Align the headers in the center */
+        }
+    
+        #topContainer p,
+        #bottomContainer p {
+            color: #444;
+            line-height: 1.6;
+            font-size: 1em;
+            margin-bottom: 10px;
+        }
+    
+        #topContainer button,
+        #bottomContainer button {
+            background-color: #00796b; /* Darker green for buttons */
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+    
+        #topContainer button:hover,
+        #bottomContainer button:hover {
+            background-color: #004d40;
+            transform: translateY(-2px); /* Slight lift effect on hover */
+        }
+    
+        /* Input Fields Styling */
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+    
+        /* Radio Buttons Styling */
+        input[type="radio"] {
+            margin-right: 5px;
+        }
+    
+        label {
+            font-size: 1em;
+            color: #333;
+        }
+    
+        /* Submit Button Styling */
+        button[type="button"] {
+            margin-top: 20px;
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background-color: #0288d1;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease, box-shadow 0.2s ease;
+        }
+    
+        button[type="button"]:hover {
+            background-color: #0277bd;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+        }
+    
+        /* Responsive Styles for Smaller Screens */
+        @media (max-width: 768px) {
+            #container {
+                flex-direction: column;
+                align-items: center;
+            }
+    
+            #visualization {
+                flex-basis: 100%;
+                margin-right: 0;
+                margin-bottom: 20px;
+            }
+    
+            #sideContainer {
+                flex-basis: 100%;
+            }
+        }
+    </style>
+    
+    
+
+
+</head>
+<body>
+
+<div id="container">
+    <div id="visualization">
+        <!-- Your visualization content goes here -->
+        <svg id="visualization" viewBox="-200 50 3200 2200" style="align-content: center"></svg>
+
+    </div>
+    <div id="sideContainer">
+        <div id="topContainer">
+
+            <h3>Author Details</h3>
+            <p id="authorName"></p>
+            <p id="authorCountry"></p>
+            <p id="authorTitle"></p>
+            <p id="authorYear"></p>
+        </div>
+        <div id="bottomContainer">
+            <form id="controlForm">
+                <label>Link Strength:</label>
+                <input type="number" id="linkStrength" value="" min="0" step="0.1" placeholder="Enter link strength" title="Link Strength"><br>
+
+                <label>Collide Force:</label>
+                <input type="number" id="collideForce" value="" min="0" step="1" placeholder="Enter collide force" title="Collide Force"><br>
+
+                <label>Charge Force:</label>
+                <input type="number" id="chargeForce" value="" step="1" placeholder="Enter charge force" title="Charge Force"><br>
+
+                <label>Node Size:</label> <br>
+                <input type="radio" name="nodeSize" value="citations" checked title="Number of Citations"> Number of Citations<br>
+                <input type="radio" name="nodeSize" value="publications" title="Number of Publications"> Number of Publications<br>
+                <input type="radio" name="nodeSize" value="degree" title="Degree"> Degree<br>
+
+                <button type="button" onclick="submitForm()">Submit</button>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    
+    d3.select("#linkStrength").property("value", "1").dispatch("input")
+    d3.select("#collideForce").property("value", "25").dispatch("input")
+    d3.select("#chargeForce").property("value", "-3").dispatch("input")
+    let strengthValue = parseFloat(d3.select("#linkStrength").property("value"))
+    let collideValue = parseFloat(d3.select("#collideForce").property("value"))
+    let chargeValue = parseFloat(d3.select("#chargeForce").property("value"))
+    let selectedValue = d3.select('input[name="nodeSize"]:checked').node().value;
+    upgrade()
+
+    function submitForm() {
+        d3.select("#visualization svg").selectAll("*").remove();
+        d3.select("#linkStrength").on("input", function () {
+            const value = parseFloat(this.value);
+            console.log(value)
+            if(strengthValue>=0 && strengthValue<=1) {
+                strengthValue = isNaN(value) ? 1 : value;
+            }
+            else
+            {
+                strengthValue = 1;
+            }
+            //upgrade();
+        })
+
+        d3.select("#collideForce").on("input", function () {
+            const value = parseFloat(this.value);
+            collideValue = isNaN(value) ? 25 : value;
+
+            //upgrade();
+        })
+
+        d3.select("#chargeForce").on("input", function () {
+            const value = parseFloat(this.value);
+            chargeValue = isNaN(value) ? -3 : value;
+            //upgrade();
+        })
+        //updateNodeSize(selectedValue);
+        selectedValue = d3.select('input[name="nodeSize"]:checked').node().value;
+        console.log(0)
+
+        upgrade();
+
+    }
+
+    function upgrade() {
+        d3.json("co_author_data.json").then(function (data) {
+            const nodes = data.nodes;
+            const edges = data.links;
+            // Step 1: Count the occurrences of each country
+            const countryCounts = {};
+            nodes.forEach(node => {
+                const country = node.country;
+                if (country) {
+                    countryCounts[country] = (countryCounts[country] || 0) + 1;
+                }
+            });
+
+            // Step 2: Sort countries by frequency and get the top 10
+            const top10Countries = Object.entries(countryCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .map(entry => entry[0]);
+
+            // Step 3: Define color scale for top 10 countries and default color for others
+            const colorScale = d3.scaleOrdinal()
+                .domain(top10Countries)
+                .range(d3.schemeCategory10);
+
+            const defaultColor = '#A9A9A9';
+            
+            console.log("start")
+
+            const svg = d3.select("#visualization svg");
+            const width = parseInt(svg.attr("viewBox").split(" ")[2]);
+            console.log("width:", width)
+            const height = parseInt(svg.attr("viewBox").split(" ")[3]);
+
+            const zoom = d3.zoom()
+                .scaleExtent([0.5, 5])
+                .on("zoom", zoomed);
+
+            svg.call(zoom);
+            function zoomed(event) {
+                main_group.attr("transform", event.transform);
+            }
+
+// Add a function to reset the zoom (optional)
+            function resetZoom() {
+                svg.transition()
+                .duration(750)
+                .call(zoom.transform, d3.zoomIdentity);  // Reset zoom to the original view
+            }
+
+            const main_group = svg.append("g")
+                .attr("transform", "translate(${width * 0.1},${height * 0.1}) scale(1.6)");
+
+
+            const chargeForce = d3.forceManyBody()
+                .strength(chargeValue);
+            // Calculate the degree for each node based on the number of links connected
+            nodes.forEach(node => {
+                node.degree = edges.filter(edge => edge.source === node.id || edge.target === node.id).length;
+            });
+
+            const simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(edges).id(d => d.id).strength(strengthValue))
+                .force("charge", chargeForce)
+                .force("collide", d3.forceCollide(collideValue))
+                .force("center", d3.forceCenter(width / 2, height / 2));
+
+            const nodeSize = d3.scaleSqrt()
+                .domain([0, d3.max(nodes, d => d.citations * 1)])
+                .range([4, 20]);
+
+            const link = main_group.selectAll(".link")
+                .data(edges)
+                .enter().append("line")
+                .attr("class", "link")
+                .style("stroke", "grey")
+                .attr("stroke-width", 1.5);
+
+            //const numberOfColors = 50;
+            //const viridisColors = Array.from({ length: numberOfColors }, (d, i) => d3.interpolateViridis(i / (numberOfColors - 1)));
+            //const colorScale = d3.scaleOrdinal(viridisColors);
+
+
+            const node = main_group.selectAll(".node")
+                .data(nodes)
+                .enter().append("circle")
+                .attr("class", "node")
+                //.attr("r", d=>nodeSize(d.citations))
+                .attr("fill", d => top10Countries.includes(d.country) ? colorScale(d.country) : defaultColor)
+
+                .attr("fill", d => colorScale(d.country))
+                .style("pointer-events", "all")
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended))
+                    .on("mouseover", handleMouseOver)  // Add this line
+                    .on("mouseout", handleMouseOut)    // Add this line
+                    .on("click", function (event, d) {
+                        showAuthorDetails(d);
+                    });
+            node.append("text")
+                .attr("dx", 8)
+                .attr("dy", ".35em")
+                .style("font-size", "10px")
+                .text(d => {
+                    //console.log(d.authors)
+                    return d.authors})
+                .attr("text-anchor","middle");
+            let scale;
+            if (selectedValue === "publications") {
+                // Calculate the number of publications for each author
+                const authorPublicationsMap = new Map();
+
+                nodes.forEach(node => {
+                    const authors = node.authors.split(';');
+                    authors.forEach(author => {
+                        const trimmedAuthor = author.trim();
+                        authorPublicationsMap.set(trimmedAuthor, (authorPublicationsMap.get(trimmedAuthor) || 0) + 1);
+                    });
+                });
+
+                // Create a scale based on the number of publications
+                scale = d3.scaleSqrt()
+                    .domain([0, d3.max(Array.from(authorPublicationsMap.values()))])
+                    .range([4, 20]);
+
+                // Update node sizes based on the number of publications for each author
+                node.transition().duration(500)
+                    .attr("r", d => {
+                        const authors = d.authors.split(';');
+                        let totalPublications = 0;
+                        authors.forEach(author => {
+                            const trimmedAuthor = author.trim();
+                            totalPublications += authorPublicationsMap.get(trimmedAuthor) || 0;
+                        });
+                        return scale(totalPublications);
+                    })
+            }
+            else if(selectedValue==="degree")
+            {
+                nodes.forEach(node => {
+                    // Calculate the degree based on the number of edges connected to the node
+                    node.degree = edges.filter(edge => edge.source === node.id || edge.target === node.id).length;
+                });
+                //node.attr("r", d=>nodeSize(d.citations*2));
+                const maxDegree = d3.max(nodes, d => d.degree);
+                const nodeSizeScale = d3.scaleSqrt()
+                    .domain([0, maxDegree])  // Use the max degree
+                    .range([3, 12]);
+                node.attr("r", d => nodeSizeScale(d.degree));
+            }
+            else
+            {
+                node.attr("r", d=>nodeSize(d.citations))
+            }
+            function zoomed(event) {
+                main_group.attr("transform", event.transform);
+            }
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+
+            function ticked() {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
+            }
+            function handleMouseOver(event, d) {
+            // On mouse over, set the opacity of nodes that do not have the same country as 0.2
+                node.style("opacity", n => n.country === d.country ? 1 : 0.2);
+                link.style("opacity", 0.2);
+            }
+
+            function handleMouseOut() {
+            // On mouse out, reset all nodes and links to full opacity
+                node.style("opacity", 1);
+                link.style("opacity", 1);
+            }
+
+            simulation.on("tick", ticked);
+            // d3.select("#nodeSizeForm").on("change", function () {
+            //     d3.event.preventDefault(); // Prevent the default form submission behavior
+            //     const selectedValue = d3.select('input[name="nodeSize"]:checked').node().value;
+            //     updateNodeSize(selectedValue);
+            // });
+            // d3.selectAll('input[name="nodeSize"]').on("change", function () {
+            //     const selectedValue = this.value;
+            //     updateNodeSize(selectedValue);
+            // });
+            function updateNodeSize(criteria) {
+                let scale;
+                if (criteria === "publications") {
+                    // Calculate the number of publications for each author
+                    const authorPublicationsMap = new Map();
+
+                    nodes.forEach(node => {
+                        const authors = node.authors.split(';');
+                        authors.forEach(author => {
+                            const trimmedAuthor = author.trim();
+                            authorPublicationsMap.set(trimmedAuthor, (authorPublicationsMap.get(trimmedAuthor) || 0) + 1);
+                        });
+                    });
+
+                    // Create a scale based on the number of publications
+                    scale = d3.scaleSqrt()
+                        .domain([0, d3.max(Array.from(authorPublicationsMap.values()))])
+                        .range([4, 20]);
+
+                    // Update node sizes based on the number of publications for each author
+                    node.transition().duration(500)
+                        .attr("r", d => {
+                            const authors = d.authors.split(';');
+                            let totalPublications = 0;
+                            authors.forEach(author => {
+                                const trimmedAuthor = author.trim();
+                                totalPublications += authorPublicationsMap.get(trimmedAuthor) || 0;
+                            });
+                            return scale(totalPublications);
+                        })
+                        .on("end", () => simulation.alpha(1).restart());
+                } else {
+                    // Handle other criteria ("citations", "degree", etc.) similarly to your existing code
+                    scale = d3.scaleSqrt()
+                        .domain([0, d3.max(nodes, d => d[criteria] * 1)])
+                        .range([4, 20]);
+
+                    node.transition().duration(500)
+                        .attr("r", d => scale(d[criteria]))
+                        .on("end", () => simulation.alpha(1).restart());
+                }
+            }
+
+            function showAuthorDetails(author) {
+                console.log(author)
+                d3.select("#authorName").text('Names: ' + author.authors);
+                d3.select("#authorCountry").text('Country: ' + author.country);
+                d3.select("#authorTitle").text('Title: ' + author.title);
+                d3.select("#authorYear").text('Year: ' + author.year);
+                d3.select("#authorDetails").style("display", "block");
+            }
+
+            node.on('click', function (event, d) {
+                showAuthorDetails(d);
+            });
+
+            console.log("end")
+        });
+    }
+</script>
+</body>
+</html>
